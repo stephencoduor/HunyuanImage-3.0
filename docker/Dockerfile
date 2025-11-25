@@ -47,6 +47,7 @@ COPY . .
 ENV GPUS="0,1,2,3" \
     HOST="0.0.0.0" \
     PORT=443 \
+    MODEL_ID="HunyuanImage-3/" \
     CUDA_VISIBLE_DEVICES="${GPUS}"
 
 CMD ["bash", "./run_app.sh"]
