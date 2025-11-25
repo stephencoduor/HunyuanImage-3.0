@@ -1,0 +1,6 @@
+1. The chart deploys {{ .Chart.Name }} with GPU requests. Ensure your nodes expose nvidia.com/gpu resources and match the affinity/tolerations configured in `values.yaml`.
+2. A PersistentVolumeClaim named {{ include "hunyuanimage3.fullname" . }}-weights is created when persistence is enabled. Bind it to a storage class that can provide at least {{ .Values.persistence.size }} for model weights.
+3. To retrieve the service endpoint:
+   * LoadBalancer: `kubectl get svc {{ include "hunyuanimage3.fullname" . }} -n {{ .Release.Namespace }}`
+   * NodePort: `kubectl get nodes -o wide` and connect to `<nodeIP>:<nodePort>` shown in the service.
+4. Once the service is reachable, the app listens on port {{ .Values.service.port }} (default) and forwards to the container port {{ .Values.service.targetPort }}.

@@ -1,0 +1,83 @@
+image:
+  repository: hunyuanimage3
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+command: []
+args:
+  - bash
+  - /workspace/run_app.sh
+
+env:
+  - name: GPUS
+    value: "0,1,2,3"
+  - name: HOST
+    value: "0.0.0.0"
+  - name: PORT
+    value: "443"
+  - name: MODEL_ID
+    value: "HunyuanImage-3/"
+
+service:
+  type: LoadBalancer
+  port: 443
+  targetPort: 443
+  nodePort: null
+
+resources:
+  limits:
+    cpu: "32"
+    memory: "256Gi"
+    nvidia.com/gpu: 4
+  requests:
+    cpu: "16"
+    memory: "256Gi"
+    nvidia.com/gpu: 4
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: nvidia.com/gpu.present
+              operator: In
+              values:
+                - "true"
+tolerations:
+  - key: "nvidia.com/gpu"
+    operator: Exists
+    effect: NoSchedule
+nodeSelector: {}
+
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 200Gi
+  mountPath: /workspace/HunyuanImage-3.0/model_weights
+
+probes:
+  port: 443
+  liveness:
+    enabled: true
+    type: tcp
+    initialDelaySeconds: 60
+    periodSeconds: 30
+  readiness:
+    enabled: true
+    type: tcp
+    initialDelaySeconds: 30
+    periodSeconds: 15
+
+podAnnotations: {}
+replicaCount: 1
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
