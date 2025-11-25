@@ -148,6 +148,28 @@ pip install flashinfer-python
 
 ## 🚀 Usage
 
+### Deploy with Helm (GPU Clusters)
+
+You can deploy HunyuanImage 3.0 to a Kubernetes cluster with the bundled Helm chart. The defaults mirror the runtime requirements above (CUDA 12.8, PyTorch 2.7.1, and four NVIDIA GPUs by default) and provision a 200Gi persistent volume for model weights.
+
+```bash
+# From the repository root
+git clone <repo-url> && cd HunyuanImage-3.0
+helm install hunyuanimage3 ./helm/hunyuanimage3 -n hunyuan --create-namespace \
+  --set image.repository=<your-image> \
+  --set image.tag=<tag> \
+  --set persistence.storageClass=<storage-class-name>
+```
+
+Common overrides:
+
+- Switch to NodePort: `--set service.type=NodePort --set service.nodePort=<port>`
+- Adjust GPU requests/limits: `--set resources.requests.nvidia.com/gpu=3 --set resources.limits.nvidia.com/gpu=4`
+- Override run_app.sh args/env: `--set args='{bash,/workspace/run_app.sh,--moe-impl,flashinfer}' --set env[0].name=GPUS --set env[0].value="0,1,2"`
+- Pull from private registries: `--set imagePullSecrets[0].name=<secret-name>`
+
+After installation, check the service endpoint with `kubectl get svc hunyuanimage3 -n hunyuan` (LoadBalancer) or use the reported NodePort to access the UI.
+
 ### 🔥 Quick Start with Transformers
 
 #### 1️⃣ Download model weights
