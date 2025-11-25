@@ -1,0 +1,11 @@
+apiVersion: v2
+name: hunyuanimage3
+description: Helm chart to deploy HunyuanImage 3.0 with GPU acceleration
+version: 0.1.0
+appVersion: "3.0"
+type: application
+keywords:
+  - hunyuan
+  - image-generation
+  - gpu
+  - pytorch
