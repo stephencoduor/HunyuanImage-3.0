@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  app:
+    image: hunyuanimage:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        INSTALL_FLASH_ATTN: ${INSTALL_FLASH_ATTN:-false}
+        INSTALL_FLASH_INFER: ${INSTALL_FLASH_INFER:-false}
+    environment:
+      GPUS: ${GPUS:-0,1,2,3}
+      CUDA_VISIBLE_DEVICES: ${GPUS:-0,1,2,3}
+      MODEL_ID: ${MODEL_ID:-/workspace/models/HunyuanImage-3}
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-443}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - ${MODEL_DIR:-./HunyuanImage-3}:/workspace/models/HunyuanImage-3:ro
+    ports:
+      - "${PORT:-443}:${PORT:-443}"
+    command: ["bash", "./run_app.sh"]
