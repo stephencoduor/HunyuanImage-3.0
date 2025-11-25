@@ -1,0 +1,136 @@
+name: Docker images
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      build-chart:
+        description: 'Package Helm chart and upload as artifact'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  DOCKERFILE_PATH: docker/Dockerfile
+  CHART_DIRECTORY: helm/chart
+
+jobs:
+  lint:
+    name: Lint (import check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Import and syntax check
+        run: |
+          python - <<'PY'
+          import compileall
+          import pathlib
+
+          roots = ["app", "hunyuan_image_3", "vllm_infer"]
+          paths = [pathlib.Path(root) for root in roots if pathlib.Path(root).exists()]
+          if not paths:
+              raise SystemExit("No import roots found to compile")
+          for path in paths:
+              if not compileall.compile_dir(str(path), quiet=1):
+                  raise SystemExit(f"Import check failed in {path}")
+          PY
+
+  docker:
+    name: Build and push Docker image
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        flash_attn: ["false", "true"]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          password: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=sha
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE_PATH }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            INSTALL_FLASH_ATTN=${{ matrix.flash_attn }}
+          cache-from: type=gha,scope=${{ matrix.flash_attn }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.flash_attn }}
+          provenance: false
+
+  helm:
+    name: Package Helm chart
+    needs: lint
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.build-chart) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && vars.BUILD_HELM_CHART == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Package chart
+        run: |
+          if [ ! -d "$CHART_DIRECTORY" ]; then
+            echo "Helm chart directory '$CHART_DIRECTORY' not found" >&2
+            exit 1
+          fi
+          helm dependency update "$CHART_DIRECTORY"
+          helm package "$CHART_DIRECTORY" --destination packaged
+
+      - name: Upload chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hunyuanimage-chart
+          path: packaged/*.tgz
+          if-no-files-found: error
