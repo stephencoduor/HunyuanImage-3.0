@@ -66,6 +66,7 @@ If you develop/use HunyuanImage-3.0 in your projects, welcome to let us know.
   - [🔥 Quick Start with Transformers](#-quick-start-with-transformers)
   - [🏠 Local Installation & Usage](#-local-installation--usage)
   - [🎨 Interactive Gradio Demo](#-interactive-gradio-demo)
+  - [🐳 Docker Compose](#-docker-compose)
 - [🧱 Models Cards](#-models-cards)
 - [📝 Prompt Guide](#-prompt-guide)
   - [Manually Writing Prompts](#manually-writing-prompts)
@@ -290,6 +291,52 @@ sh run_app.sh --moe-impl flashinfer --attn-impl flash_attention_2
 #### 4️⃣ Access the Interface
 
 > 🌐 **Web Interface:** Open your browser and navigate to `http://localhost:443` (or your configured port)
+
+
+### 🐳 Docker Compose
+
+Run the Gradio app in a container built from [`docker/Dockerfile`](./docker/Dockerfile).
+
+1. **Download Model Weights (~170GB)**
+   - Save the weights locally (e.g., `/data/HunyuanImage-3`). This path is mounted read-only into the container.
+
+2. **Build the Image**
+
+```bash
+# Optional performance flags
+export INSTALL_FLASH_ATTN=false
+export INSTALL_FLASH_INFER=false
+
+docker compose build
+```
+
+3. **Start the Service**
+
+```bash
+# Required: local weights path (170GB)
+export MODEL_DIR="/data/HunyuanImage-3"
+
+# Optional overrides
+export GPUS="0,1,2,3"
+export MODEL_ID="/workspace/models/HunyuanImage-3"
+export HOST="0.0.0.0"
+export PORT="443"
+
+docker compose up -d
+```
+
+The compose file mounts `$MODEL_DIR` to `/workspace/models/HunyuanImage-3` inside the container, exposes `$PORT`, and reserves NVIDIA GPUs via `deploy.resources.reservations.devices`.
+
+4. **Stop the Service**
+
+```bash
+docker compose down
+```
+
+**Validate & Monitor**
+
+- Check the rendered configuration: `docker compose config`
+- Tail logs after startup: `docker compose logs -f`
 
 
 ## 🧱 Models Cards
